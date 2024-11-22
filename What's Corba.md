@@ -12,8 +12,6 @@ CORBA defines OMA as a software component integration architecture (OMA). Becaus
 
 Banking, healthcare, and telecommunications have specified services and facilities. OMG and its members define CORBAservices and CORBAfacilities, and vendors implement them. Multiple vendors’ Services and Facilities may communicate. Few CORBA applications leverage many of its services and features.
 
-A Java android development course will give you more insights into the topic.
-
 #### Interface Definition Language
 
 IDL describes the client-server contract (IDL). IDL specifies the interface and operation parameters. IDL is independent of client/server languages. The syntax of IDL is similar to the syntax of Java or C++. IDL contains no implementation details, however, as IDL interfaces are implemented in conventional programming languages.
