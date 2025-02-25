@@ -1,48 +1,108 @@
-The original ZDR was: "dynamic storage zones" ZDP 100032570. This ZDR has undergone significant adaptations for WM. Most of these changes have been implemented and proven effective. However, during the last implementation, WM had some complaints about certain functionalities. A meeting between @Eric ZenzMatzl, @Michael LANG, and @Dominik FUCHSBICHLER resulted in the following conclusions:
+To address the issue of a shuttle blocking another shuttle in a dead-end sector, we can enhance the existing logic to consider potential entrapment scenarios. The idea is to plan the movement of a shuttle (e.g., SHUT1713) in such a way that it avoids trapping another shuttle (e.g., SHUT1783) by moving towards the last sector that doesn't cause entrapment. If the other shuttle is still busy when the first shuttle arrives, it can then be planned further towards its target.
 
-=============
+Here's a step-by-step approach to implement this:
 
-**New feature branch:** `feature/zdp-100032570` based on `feature/zdp-100032570.dynamic-storage-zones`.  
-**Create merge request:** to `feature/zdp-100032570.dynamic-storage-zones` when finished.
+1. **Determine Entrapment**: Extend the logic to determine if a shuttle will trap another shuttle in a dead-end sector.
+2. **Plan Movement**: Plan the movement of the shuttle towards the last sector that doesn't cause entrapment.
+3. **Re-evaluate**: If the other shuttle is still busy, re-evaluate and plan further movement.
 
-**Softening checks in the database:**
+Let's implement this in the `GridShuttleScheduler` class.
 
-The shrunk zone must have more "empty container positions" and "free positions" available than the containers in the shrunk zone that will be moved to the expanded zone.
+### Step 1: Extend Logic to Determine Entrapment
 
-**DB => 3 MD**
-
-**Additional check when executing the reassignment:**
-
-In addition to the forecast check to see if the reassignment is feasible, there should also be a check during the execution of the reassignment to ensure it is possible.
-
-**DB => 2 MD**
-
-**Additional safety check:**
-
-The database must ensure that at least one RackLocation per Zone/Level/Aisle remains free, regardless of the zone size.
-
-**DB => 5 MD**
-
-**Automatic reassignment in Spider:**
-
-When a container with a product is relocated from the expanded zone to the shrunk zone and there is no space, but there are enough empty containers that can be moved to the expanded zone, Spider will automatically create a relocation of an empty container to the expanded zone.
-
-**Spider => 3 MD**
-
-**In OverlappingZonesManager:**
+Add a method to check if moving a shuttle to a position will trap another shuttle.
 
 ```java
-/**
- * Selects a container for the given allocation order, based on the
- * container class and source zone of the order.
- *
- * @param allocationOrder
- * @return a container for the class which is currently assigned to the
- * source zone of the order.
- */
-private Container selectContainerForReallocationOrder(AllocationOrder allocationOrder) {
-    // Implementation here
+private boolean willTrapShuttle(Position targetPosition, GridShuttleTransporter movingShuttle, GridShuttleTransporter trappedShuttle) {
+    // Check if movingShuttle to targetPosition will trap trappedShuttle
+    // This can be an extension of the existing logic that checks for max shuttles in a sector
+    return this.limitationInfo.isMaxTransportersInSectorReached(targetPosition, movingShuttle, 0)
+        && arePositionsInSameSectorExcludingCrossings(targetPosition, trappedShuttle.getCurrentMainPosition());
 }
 ```
 
-We shouldn't limit the number of relocations, as they are already implicitly limited. However, we need to ensure that we prefer empty containers over non-empty containers. Introduce a new `Container` member `empty` in the same manner as `classId`, `length`, and `weight` attributes. Use this attribute in `OverlappingZonesManager` to prefer empty containers over non-empty containers. That should be all there is to it.
+### Step 2: Plan Movement Towards Non-Entrapping Position
+
+Modify the method that plans the movement of shuttles to include the logic for avoiding entrapment.
+
+```java
+private boolean sendShuttleToAssignedZone(
+        GridShuttleTransporter transporter,
+        Zone targetZone,
+        Set<Position> ignoredPositions,
+        GridShuttleTransporter trappedShuttle) throws TransporterJobSetChangedException {
+    Set<Position> targetPositions = targetZone.getLocations().stream()
+        .map(l -> this.model.getPositionOfChannel(l.getUniqueName()))
+        .filter(Objects::nonNull)
+        .distinct()
+        .filter(targetPosition -> (ignoredPositions == null || !ignoredPositions.contains(targetPosition)))
+        .filter(targetPosition -> !this.limitationInfo.isMaxTransportersReached(
+                transporter.getCurrentMainPosition(),
+                targetPosition, transporter.getName(),
+                false, 1))
+        .filter(targetPosition -> !this.model.getNoIdleWaitingPositions(this.level).contains(targetPosition))
+        .collect(Collectors.toSet());
+
+    // Find the last non-entrapping position
+    Position nonEntrappingPosition = null;
+    for (Position pos : targetPositions) {
+        if (!willTrapShuttle(pos, transporter, trappedShuttle)) {
+            nonEntrappingPosition = pos;
+        } else {
+            break;
+        }
+    }
+
+    if (nonEntrappingPosition != null) {
+        CalculatedPath calculatedPath = this.pathHelper.calcPathForTransporterDeportBlockingShuttle(
+            Collections.singleton(nonEntrappingPosition), transporter, false);
+
+        if (calculatedPath != null) {
+            Activity<?> activity = applyPlan(calculatedPath, transporter, null);
+            if (activity != null) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+```
+
+### Step 3: Re-evaluate and Plan Further Movement
+
+If the shuttle is still busy, re-evaluate and plan further movement.
+
+```java
+private void reEvaluateAndPlanFurther(GridShuttleTransporter transporter, GridShuttleTransporter trappedShuttle) throws TransporterJobSetChangedException {
+    if (trappedShuttle.getState() == State.BUSY) {
+        // Re-evaluate and plan further movement
+        sendShuttleToAssignedZone(transporter, getZone(this.config.borderZone), null, trappedShuttle);
+    }
+}
+```
+
+### Integrate the Logic
+
+Integrate the new logic into the existing scheduling methods.
+
+```java
+private void scheduleShuttlesToPark(List<GridShuttleTransporter> availableTransporters) throws TransporterJobSetChangedException {
+    logStep(SUB_LOG_STEP, "schedule shuttles to park");
+    List<GridShuttleTransporter> shuttlesToPark = getShuttlesToPark();
+    shuttlesToPark.addAll(availableTransporters);
+
+    for (GridShuttleTransporter transporter : shuttlesToPark) {
+        GridShuttleTransporter trappedShuttle = findTrappedShuttle(transporter);
+        if (trappedShuttle != null) {
+            if (!sendShuttleToAssignedZone(transporter, getZone(this.config.borderZone), null, trappedShuttle)) {
+                reEvaluateAndPlanFurther(transporter, trappedShuttle);
+            }
+        } else {
+            parkShuttle(transporter, availableTransporters);
+        }
+    }
+}
+```
+
+This approach ensures that the shuttle movement is planned in a way that avoids trapping other shuttles, and if unavoidable, minimizes the time lost for the trapped shuttle.
