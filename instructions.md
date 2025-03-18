@@ -58,3 +58,13 @@ Summary of the roles of each component:
 - **`OracleSupplyAreaDAO`**: This class implements the `SupplyAreaDAO` interface for Oracle databases. It contains the actual code to interact with an Oracle database and persist the data.
 
 In summary, the `PLC adapter` uses `CorbaSupplyAreaDAO` to forward data to the `DataCollectingServant`, which then uses `OracleSupplyAreaDAO` to persist the data in the database.
+
+The `DataCollectingServant` does not have `CorbaSupplyAreaDAO` because its primary role is to persist data in the database. The `OracleSupplyAreaDAO` is used for direct database interactions, which is the final step in the data collection process.
+
+The `CorbaSupplyAreaDAO` is used by the PLC adapter to forward data to the `DataCollectingServant`. Once the data reaches the `DataCollectingServant`, it uses `OracleSupplyAreaDAO` to persist the data in the database.
+
+Here is a summary of the flow:
+1. **PLC Adapter**: Uses `CorbaSupplyAreaDAO` to forward data to `DataCollectingServant`.
+2. **DataCollectingServant**: Receives the data and uses `OracleSupplyAreaDAO` to persist it in the database.
+
+This separation ensures that the `DataCollectingServant` focuses on data persistence, while the `CorbaSupplyAreaDAO` handles the communication between the PLC adapter and the `DataCollectingServant`.
