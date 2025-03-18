@@ -44,3 +44,17 @@ This IDL (Interface Definition Language) file defines the CORBA interfaces for t
 3. **Forward Data**: Implement a class in the PLC adapter to forward the raw data to the `dbcollector` process. Use `CorbaSupplyAreaDAO` to resolve the `DataCollectingServant` and forward the data.
 
 4. **Persist Data**: Use `OracleSupplyAreaDAO` to persist the data in the Oracle database.
+
+
+
+Summary of the roles of each component:
+
+- **`SupplyAreaDAO`**: This is the main interface that defines the methods for accessing and manipulating data related to supply areas.
+
+- **`CorbaSupplyAreaDAO`**: This class implements the `SupplyAreaDAO` interface and is used to forward data from the PLC adapter to the `DataCollectingServant` using CORBA.
+
+- **`DataCollectingServant`**: This class implements the `DataCollectorOperations` interface and acts as a servant to collect data from various sources. It uses an `EventQueue` to handle data processing asynchronously and forwards the data to the appropriate DAO for persistence.
+
+- **`OracleSupplyAreaDAO`**: This class implements the `SupplyAreaDAO` interface for Oracle databases. It contains the actual code to interact with an Oracle database and persist the data.
+
+In summary, the `PLC adapter` uses `CorbaSupplyAreaDAO` to forward data to the `DataCollectingServant`, which then uses `OracleSupplyAreaDAO` to persist the data in the database.
