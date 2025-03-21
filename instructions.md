@@ -68,3 +68,39 @@ Here is a summary of the flow:
 2. **DataCollectingServant**: Receives the data and uses `OracleSupplyAreaDAO` to persist it in the database.
 
 This separation ensures that the `DataCollectingServant` focuses on data persistence, while the `CorbaSupplyAreaDAO` handles the communication between the PLC adapter and the `DataCollectingServant`.
+
+### **StationBaseListener**
+The `StationBaseListener` is an interface that defines the methods to be called when a message is received. It acts as the target for the CORBA call, meaning it contains the business logic that should be executed in response to the incoming message. Essentially, the `listener` is the object that will handle the actual processing of the message.
+
+### **AMI_StationBaseListenerHandler**
+The `AMI_StationBaseListenerHandler` is used for asynchronous method invocation (AMI). AMI allows methods to be called asynchronously, meaning the caller does not have to wait for the method to complete before continuing with other tasks. The `amiHandler` is responsible for managing the asynchronous communication, ensuring that the method invocation is handled correctly and efficiently.
+
+### **Why Both Are Needed**
+1. **Listener**:
+   - **Purpose**: Contains the business logic to process the message.
+   - **Role**: Executes the method defined in the `StationBaseListener` interface when a message is received.
+
+2. **AMI Handler**:
+   - **Purpose**: Manages asynchronous communication.
+   - **Role**: Ensures that the method invocation is handled asynchronously, allowing the system to continue processing other tasks without waiting for the method to complete.
+
+### **How They Work Together**
+When a TLV message is received, the `handleTLV` method retrieves both the `listener` and the `amiHandler`:
+- The `listener` is used to execute the business logic defined in the `StationBaseListener` interface.
+- The `amiHandler` is used to manage the asynchronous communication, ensuring that the method invocation is handled efficiently.
+
+### **Example Scenario**
+Imagine you have a PLC system that sends a message to start a motor. The `listener` contains the logic to start the motor, while the `amiHandler` ensures that the command to start the motor is sent asynchronously. This way, the system can continue processing other tasks while the motor is being started.
+
+### **Code Context**
+In the provided code snippet:
+```java
+final StationBaseListener listener = holder.getInvocationTarget();
+final AMI_StationBaseListenerHandler amiHandler = holder.getAMI_Handler();
+```
+- `listener`: Retrieves the object that will handle the message.
+- `amiHandler`: Retrieves the handler that will manage the asynchronous communication.
+
+By using both the `listener` and the `amiHandler`, the system ensures that messages are processed correctly and efficiently, leveraging the benefits of asynchronous communication.
+
+If you have any more questions or need further clarification, feel free to ask!
