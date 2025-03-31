@@ -103,4 +103,79 @@ final AMI_StationBaseListenerHandler amiHandler = holder.getAMI_Handler();
 
 By using both the `listener` and the `amiHandler`, the system ensures that messages are processed correctly and efficiently, leveraging the benefits of asynchronous communication.
 
-If you have any more questions or need further clarification, feel free to ask!
+To persist the jam status data in the database, you can follow these steps:
+
+1. Create a table to store the jam status data with columns for the station ID, start time, and end time.
+2. Modify the `OraclePlcStationReplyDAO` class to handle the persistence logic.
+
+Here is an example of how you can create the table:
+
+```sql
+CREATE TABLE JamStatus (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    station_id INT NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP
+);
+```
+
+Next, you can modify the `OraclePlcStationReplyDAO` class to handle the persistence logic. You will need to add methods to insert a new jam status record when a jam starts and update the record when the jam ends.
+
+Here is an example of how you can modify the `OraclePlcStationReplyDAO` class:
+
+```java
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
+```
+
+```java
+    private Logger logger;
+    private Connection connection;
+    private Map<Integer, Timestamp> activeJams;
+
+    public OraclePlcStationReplyDAO(Connection connection) {
+        if (connection == null) {
+            throw new IllegalArgumentException("DB Connection may not be null");
+        }
+        this.logger = LogManager.getLogger(OraclePlcStationReplyDAO.class);
+        this.connection = connection;
+        this.activeJams = new HashMap<>();
+    }
+```
+
+```java
+    @Override
+    public void jamStatus(int sourceStationId, int position, boolean active, Any errorInfo) {
+        try {
+            if (active) {
+                // Insert new jam status record
+                String sql = "INSERT INTO JamStatus (station_id, start_time) VALUES (?, ?)";
+                try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    stmt.setInt(1, sourceStationId);
+                    Timestamp startTime = new Timestamp(System.currentTimeMillis());
+                    stmt.setTimestamp(2, startTime);
+                    stmt.executeUpdate();
+                    activeJams.put(sourceStationId, startTime);
+                }
+            } else {
+                // Update existing jam status record
+                String sql = "UPDATE JamStatus SET end_time = ? WHERE station_id = ? AND start_time = ?";
+                try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    Timestamp endTime = new Timestamp(System.currentTimeMillis());
+                    stmt.setTimestamp(1, endTime);
+                    stmt.setInt(2, sourceStationId);
+                    stmt.setTimestamp(3, activeJams.get(sourceStationId));
+                    stmt.executeUpdate();
+                    activeJams.remove(sourceStationId);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to persist jam status", e);
+        }
+    }
+```
+
+This code will insert a new record when a jam starts and update the record with the end time when the jam ends. The `activeJams` map is used to keep track of the start times of active jams.
