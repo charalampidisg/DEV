@@ -245,3 +245,92 @@ The benefit is that the pathfinding algorithm only needs to explore the smaller 
 - This two-level approach dramatically improves pathfinding efficiency by reducing the search space
 
 This is similar to how humans navigate - we think in terms of landmarks and turns rather than counting every step along the way.
+
+# Understanding HubGraph and SpokePath Storage
+
+Based on the code, I'll explain where the hub/spoke information is stored and how it's accessed:
+
+## Key Data Structures in HubGraph
+
+The `HubGraph` class maintains several critical data structures:
+
+1. **Spoke Storage**:
+   ```java
+   public final HubGraph.Spoke[] spokeOfPosition;
+   ```
+   This array maps each position graph vertex ID to the spoke it belongs to.
+
+2. **Position-to-Hub Mapping**:
+   ```java
+   private final int[] hgIdOfPgId;
+   private final int[] pgIdOfHgId;
+   ```
+   These arrays handle translation between PositionGraph IDs and HubGraph IDs.
+
+3. **Position Offset Information**:
+   ```java
+   final int[] offsetOfPosition;
+   ```
+   This tracks where along a spoke each position is located (in mm).
+
+4. **Spoke Cuboid Storage**:
+   ```java
+   final CuboidRTree<HubGraph.Spoke.SpokeCuboid> spokeRTree;
+   ```
+   This spatial index enables efficient collision detection.
+
+## Spoke Path Construction and Usage
+
+When a path is calculated:
+
+1. First, `TurboPathFinder` finds a path on the HubGraph (through hubs)
+2. This produces a "spokePath" - a sequence of position IDs representing key points
+3. The `spokePathToFQPath` method expands the spokePath:
+   ```java
+   List<Integer> spokePathToFQPath(final List<Integer> spokePath) {
+       // ... expands to include all intermediate positions ...
+   }
+   ```
+
+4. The `GrossTasiPathFinder` class uses this functionality:
+   ```java
+   public List<Position> getFullyQualifiedPath(
+       final @NonNull CalculatedPath path,
+       final boolean reversePath) {
+       return pathFinder.getFullyQualifiedPath(path, reversePath);
+   }
+   ```
+
+## Finding a Path's Spokes
+
+To find which spokes a specific path uses:
+
+```java
+public List<Spoke> getSpokes(int pgId) {
+    List<Spoke> result = new LinkedList<>();
+    if (spokeOfPosition[pgId] != null) {
+        result.add(spokeOfPosition[pgId]);
+        result.add(getEdge(spokeOfPosition[pgId].w, spokeOfPosition[pgId].v));
+        return result;
+    }
+
+    getOutAdjList(pgIdToHgId(pgId)).forEach(result::add);
+    getInAdjList(pgIdToHgId(pgId)).forEach(result::add);
+    return result;
+}
+```
+
+This method returns all spokes connected to a position (both as intermediate position and as hub).
+
+## Hub and Spoke Structure in Memory
+
+The HubGraph maintains:
+
+1. The core graph structure from `DynAdjListGraph` (vertices and edges)
+2. Each `Spoke` object contains:
+   ```java
+   public final List<Integer> positions;  // All positions along the spoke
+   ```
+   This stores the complete sequence of positions.
+
+This architecture allows the system to work with a simplified graph for path calculations while maintaining the ability to expand to full detailed paths when needed.
