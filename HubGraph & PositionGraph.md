@@ -74,4 +74,117 @@ O---P---Q---R---S---T---U
   - PositionGraph: Must explore up to 21 vertices
   - HubGraph: Explores just 5 vertices (A→F→L→S→U), then expands to full path
 
-This dramatically reduces pathfinding complexity while maintaining the ability to generate detailed paths when needed.
+
+# Understanding Hub Definition with Examples
+
+The hub definition describes the criteria for which positions in the detailed PositionGraph become hubs in the simplified HubGraph. Let me explain each criterion with examples:
+
+## 1. Position does not have exactly two adjacent vertices
+
+This means any position that has either one connection (dead end) or more than two connections (junction).
+
+**Example - Junction (3+ connections):**
+```
+    C
+    |
+A---B---D
+```
+Position B has 3 adjacent positions (A, C, D), so B becomes a hub.
+
+**Example - Dead End (1 connection):**
+```
+A---B---C---D
+```
+Position A has only one connection (to B), so A becomes a hub. Similarly, D is also a hub.
+
+## 2. Position has exactly two adjacent vertices, but they do not lie at opposite sides
+
+This means positions where the shuttle must turn or change direction.
+
+**Example - Corner:**
+```
+    C
+    |
+    B
+    |
+A---D---E
+```
+Position D has exactly two connections (to A and E), but they're not at opposite sides relative to D's connection with B. Therefore, D becomes a hub.
+
+## 3. Position is a lift position
+
+**Example - Elevator/Lift:**
+```
+A---B---C  (Floor 2)
+    |
+    |
+D---E---F  (Floor 1)
+```
+B and E are lift positions (they connect vertically between floors), so both become hubs.
+
+## Complete Hub Graph Example
+
+Consider this warehouse layout:
+```
+A---B---C---D---E
+    |       |
+    F---G---H
+        |
+        I---J
+```
+
+The corresponding HubGraph would contain:
+- Hubs: A (dead end), E (dead end), J (dead end), B (junction), D (junction), 
+        F (corner), G (junction), H (corner), I (corner)
+- C is NOT a hub because it has exactly 2 connections (B and D) that lie at opposite sides
+
+This drastically simplifies the graph for pathfinding while preserving all decision points.
+
+# Hub Graph Design in Pathfinding: A Layered Approach
+
+The conversation shows that HubGraph serves as an abstraction layer on top of the more detailed PositionGraph. This design follows the principle of hierarchical path planning.
+
+## Hub Graph Construction Process
+
+The HubGraph is created by identifying key positions (hubs) from the PositionGraph and connecting them with spokes:
+
+1. **Hub Identification**: A position becomes a hub if it:
+   - Has fewer or more than exactly 2 connections (junctions or dead ends)
+   - Has 2 connections that aren't in opposite directions (corners/turns)
+   - Is a lift position (vertical transport)
+
+2. **Spoke Creation**: 
+   - Follows paths from hubs until reaching another hub
+   - Stores the complete list of positions along the spoke
+   - Creates bi-directional connections between hubs
+
+## Workflow for Pathfinding
+
+The pathfinding process using this dual-graph approach works as follows:
+
+```
+TasiPathFinder → Uses TurboPathFinder → Calculates path on HubGraph → Expands to detailed path on PositionGraph
+```
+
+The code from `TasiPathFinder.java` shows this in action:
+
+```java
+final TurboPathFinder tpf = new TurboPathFinder(netGraph, hubGraph, whModel, this.propertyManager, false);
+final TurboPathSearchState estimatedPath = tpf.calcSimplePath(/* parameters */);
+```
+
+## Benefits of the Two-Layer Approach
+
+1. **Efficiency**: Pathfinding on the simplified HubGraph is much faster than on the full PositionGraph
+   - The HubGraph eliminates redundant calculations along straight paths
+   - Example: In a warehouse with 10,000 positions but only 500 junctions, the pathfinding works on a 95% smaller graph
+
+2. **Precision**: The system still maintains detailed position information via:
+   - The `spokePathToFQPath` method that expands hub paths to detailed paths
+   - The `spokeOfPosition` array that maps positions to their containing spoke
+
+3. **Two Coordinate Systems**: The system provides easy translation between:
+   - Hub Graph IDs through `pgIdToHgId` and `hgIdToPgId` methods
+   - Physical positions and their graph representations
+
+This design pattern is common in large-scale routing systems where the hierarchical approach provides substantial performance benefits while preserving necessary detail for execution.
