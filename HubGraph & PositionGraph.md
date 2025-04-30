@@ -188,3 +188,60 @@ final TurboPathSearchState estimatedPath = tpf.calcSimplePath(/* parameters */);
    - Physical positions and their graph representations
 
 This design pattern is common in large-scale routing systems where the hierarchical approach provides substantial performance benefits while preserving necessary detail for execution.
+
+# Understanding SpokePath in the HubGraph System
+
+A spokePath is a high-level path representation in the HubGraph system that consists of a sequence of position IDs (integers) representing key positions along a route. Let me explain with examples:
+
+## What is a SpokePath?
+
+A spokePath is a simplified path that contains only the necessary positions for navigation, without all the intermediate steps. It's like describing a car route as "Start at Main St, turn at Oak Ave, end at Pine Rd" instead of listing every meter along the way.
+
+In the code, a spokePath is defined as:
+
+> "A sequence of vertices s(1)..s(n) in the position graph such that for all 1 >= i < n, both s(i) and s(i+1) lie on the same spoke."
+
+## Example of a SpokePath vs. FQPath (Fully Qualified Path)
+
+Consider a warehouse layout with a long aisle:
+
+```
+H1---P1---P2---P3---H2---P4---P5---H3
+```
+
+Where H1, H2, H3 are hubs (decision points) and P1-P5 are regular positions.
+
+- **SpokePath**: [H1, H2, H3]
+- **FQPath**: [H1, P1, P2, P3, H2, P4, P5, H3]
+
+The `spokePathToFQPath` method converts the simplified spokePath into the detailed FQPath by filling in all the intermediate positions that exist along each spoke.
+
+## Real-world Example
+
+Imagine a warehouse with this layout:
+```
+    H3
+    |
+H1--H2--H4
+    |
+    H5
+```
+
+If a shuttle needs to go from H1 to H5:
+
+1. The pathfinding first works with the HubGraph:
+   - **SpokePath**: [H1, H2, H5]
+
+2. Then `spokePathToFQPath` expands this to include all intermediate positions:
+   - **FQPath**: [H1, P1, P2, H2, P3, P4, H5]
+
+The benefit is that the pathfinding algorithm only needs to explore the smaller HubGraph (just 5 hubs) rather than the full PositionGraph (which might contain dozens of positions).
+
+## Key Points
+
+- A spoke connects two hubs and contains all intermediate positions between them
+- A spokePath is a sequence of positions that defines a route through the hub graph
+- The `spokePathToFQPath` method expands this high-level path into a detailed position-by-position path
+- This two-level approach dramatically improves pathfinding efficiency by reducing the search space
+
+This is similar to how humans navigate - we think in terms of landmarks and turns rather than counting every step along the way.
