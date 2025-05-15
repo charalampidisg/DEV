@@ -134,6 +134,10 @@ edit custom vm intellij
 -Dawt.toolkit.name=WLToolkit
 -Xmx8192m
 
+ssh-keygen -t ed25519 -C $(hostname) -N "" -f $HOME/.ssh/id_ed25519
+# Add ~/.ssh/id_ed25519.pub to https://git.knapp.at/-/profile/keys
+ssh -T git@git.knapp.at
+ 
 
 
 
