@@ -116,3 +116,24 @@
 2. **Run Unit Test:**
    - Click **Run As -> Configurations**.
    - On the **VM Arguments**, paste the contents of `run_args.txt`.
+
+
+Configuration for unit testing:
+
+-enableassertions
+-Xmx4096M
+-Dlog4j.configuration=file:///home/moas/source/src_1/java/unit_tests/cfg/log4j.properties
+-Dlog4j2.enable.threadlocals=false
+-Djacorb.config.dir=/
+-Dorg.omg.CORBA.ORBClass=org.jacorb.orb.ORB
+-Dorg.omg.CORBA.ORBSingletonClass=org.jacorb.orb.ORBSingleton
+-Dosr-id=osr1
+
+edit custom vm intellij
+
+-Dawt.toolkit.name=WLToolkit
+-Xmx8192m
+
+
+
+
