@@ -109,17 +109,8 @@
 
 4. **Restart Eclipse and Wait for the Build/Refresh.**
 
-#### Unit Tests
-
-1. **Find the Appropriate Unit Test from the Eclipse Sidebar.**
-
-2. **Run Unit Test:**
-   - Click **Run As -> Configurations**.
-   - On the **VM Arguments**, paste the contents of `run_args.txt`.
-
-
-Configuration for unit testing:
-
+### Unit Testing Configuration
+```text
 -enableassertions
 -Xmx4096M
 -Dlog4j.configuration=file:///home/moas/source/src_1/java/unit_tests/cfg/log4j.properties
@@ -128,22 +119,33 @@ Configuration for unit testing:
 -Dorg.omg.CORBA.ORBClass=org.jacorb.orb.ORB
 -Dorg.omg.CORBA.ORBSingletonClass=org.jacorb.orb.ORBSingleton
 -Dosr-id=osr1
+```
 
-edit custom vm intellij
-
+### IntelliJ Custom VM Options
+```text
 -Dawt.toolkit.name=WLToolkit
 -Xmx8192m
+```
 
-# set git user information in ~/.gitconfig
+### Git User Configuration
+```bash
 git config --global user.name "Firstname Lastname"
 git config --global user.email "firstname.lastname@knapp.com"
- 
+```
+
+### Directory and SSH Key Setup
+```bash
 mkdir -p $HOME/.local/bin
 mkdir -p $HOME/source
+
 ssh-keygen -t ed25519 -C $(hostname) -N "" -f $HOME/.ssh/id_ed25519
-# Add ~/.ssh/id_ed25519.pub to https://git.knapp.at/-/profile/keys
-# TODO: Check API, maybe we can automate: https://docs.gitlab.com/ee/api/users.html#add-ssh-key
+# Add the public key to GitLab
+cat $HOME/.ssh/id_ed25519.pub
+# Visit https://git.knapp.at/-/profile/keys to add the key
+
+# Test SSH connection
 ssh -T git@git.knapp.at
+```
  
 
 
