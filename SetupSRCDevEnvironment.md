@@ -138,6 +138,24 @@ ssh-keygen -t ed25519 -C $(hostname) -N "" -f $HOME/.ssh/id_ed25519
 # Add ~/.ssh/id_ed25519.pub to https://git.knapp.at/-/profile/keys
 ssh -T git@git.knapp.at
  
-
+1) ssh-keygen -t ed25519 -C $(hostname) -N "" -f $HOME/.ssh/id_ed25519
+2) cat /home/moas/.ssh/id_ed25519.pub
+3) copy the key
+4) Add key to https://git.knapp.at/-/user_settings/ssh_keys/
+5) change your git config to 
+[core]
+   repositoryformatversion = 0
+   filemode = false
+   bare = true
+[remote "origin"]
+   url = git@git.knapp.at:osr/project/walmart
+   fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "src"]
+   url = git@git.knapp.at:osr/src
+   fetch = +refs/heads/*:refs/remotes/src/*
+6) wsl --shutdown moas
+7) wsl
+8) δεν χρειάζεται πλέον να βάζετε username και password για κάθε git remote update, git pull/push etc
+ 
 
 
